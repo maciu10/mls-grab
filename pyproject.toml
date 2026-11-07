@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mls-grab"
+version = "0.1.0"
+description = "Download all photos from an MLS / real-estate listing page"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+mls-grab = "mls_grab.cli:main"
+
+[tool.setuptools]
+packages = ["mls_grab"]
