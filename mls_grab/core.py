@@ -314,8 +314,8 @@ def photo_key(url: str) -> str:
     stem, ext = os.path.splitext(path)
     stem = re.sub(r"[_\-.](?:\d{2,5}x\d{2,5}|thumb(?:nail)?|small|medium|large|xl|lg|md|sm|"
                   r"orig(?:inal)?|full|hi(?:gh)?res|\d{2,5}w)$", "", stem)
-    if ext in (".jpeg",):
-        ext = ".jpg"
+    # zillowstatic: /fp/<hash>-cc_ft_960.jpg, -uncropped_scaled_within_1536_1152.webp, -p_e.jpg ...
+    stem = re.sub(r"(/fp/[0-9a-f]{16,})-[a-z0-9_]+$", r"\1", stem)
     return f"{parts.netloc.lower()}{stem}"
 
 
@@ -344,6 +344,7 @@ def _rank(c: Candidate, url: str) -> tuple:
     # Prefer explicit large widths, then size hints in the URL, then non-thumbnail names.
     m = re.findall(r"(\d{3,5})x(\d{3,5})", url)
     url_px = max((int(a) * int(b) for a, b in m), default=0)
+    url_px = max([url_px] + [int(n) ** 2 for n in re.findall(r"[_-](?:ft|within)_(\d{3,4})", url)])
     q = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query))
     qw = max((_int(q.get(k)) for k in ("w", "width", "maxwidth", "mw")), default=0)
     thumbish = bool(re.search(r"thumb|small|_sm\b|_s\.", url, re.I))

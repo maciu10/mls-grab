@@ -13,6 +13,10 @@ mls-grab 1683368 --url-template 'https://your-mls-site.example/listing/{id}'
 export MLS_GRAB_URL_TEMPLATE='https://your-mls-site.example/listing/{id}'   # set once
 mls-grab 1683368
 
+# Zillow: full URL, or just the zpid
+mls-grab https://www.zillow.com/homedetails/1-Tribou-Drive-Paris-ME-04281/304949881_zpid
+mls-grab 304949881 --site zillow
+
 # Only list the photo URLs
 mls-grab URL --list            # or --list --json
 ```
@@ -35,6 +39,14 @@ After that it:
 - drops logos, icons, sprites, agent headshots, tracking pixels, SVG and `data:` URIs
 - merges size variants of the same photo (`/320x240/a.jpg` and `/1024x768/a.jpg`, `a_thumb.jpg`, `?w=400` and `?w=1600`) and keeps the largest
 - checks each download's magic bytes and skips non-images, files under `--min-bytes` (default 20 KB), images under `--min-dim` px (default 300), and byte-identical duplicates
+
+## Site adapters
+
+Some sites get an adapter that reads the listing's own data instead of scanning the whole page. This matters on portals, where a page also shows photos of nearby and similar homes.
+
+- **Zillow** reads the property record embedded in `__NEXT_DATA__` (inside `gdpClientCache`). It keeps only the photos of the home whose `zpid` matches the URL, and takes the largest JPEG of each one. Zillow often answers scripts with a "Press & Hold" captcha. When it does, mls-grab says so; use the saved-page route below. Photo downloads from `photos.zillowstatic.com` don't hit the captcha.
+
+`--generic` turns adapters off.
 
 ## When a site loads its gallery with JavaScript or needs a login
 
