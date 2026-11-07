@@ -1,8 +1,13 @@
 # mls-grab
 
-Downloads every photo from an MLS or real-estate listing page. It needs only Python 3.9+ and no other packages.
+Downloads every photo of a home listing from its **street address** (or a listing URL). It needs only Python 3.9+ and no other packages. It comes with an optional password-protected web page for an nginx + PHP server.
 
 ```bash
+# By address: tries Redfin, then Realtor.com, then Zillow, and uses the first with photos
+mls-grab '1 Tribou Drive, Paris, ME 04281'
+mls-grab '1 Tribou Drive, Paris, ME 04281' --zip --json   # ZIP + machine-readable summary
+mls-grab '...' --providers realtor,zillow                  # choose the sites and their order
+
 pip install .            # installs the `mls-grab` command (or use: python -m mls_grab)
 
 # By listing page URL
@@ -40,6 +45,33 @@ After that it:
 - merges size variants of the same photo (`/320x240/a.jpg` and `/1024x768/a.jpg`, `a_thumb.jpg`, `?w=400` and `?w=1600`) and keeps the largest
 - checks each download's magic bytes and skips non-images, files under `--min-bytes` (default 20 KB), images under `--min-dim` px (default 300), and byte-identical duplicates
 
+## Address lookup: how it works and its limits
+
+| site | finds the home with | gets photos from | status from a datacenter IP (tested Nov 2026) |
+|---|---|---|---|
+| Redfin | `stingray/do/location-autocomplete` | `stingray/api/home/details/aboveTheFold`, else the home page | **blocked** (CloudFront 403) |
+| Realtor.com | `parser-external.geo.moveaws.com/suggest` | GraphQL `home(property_id){photos}` | lookup **works**; photo query **unverified** (502) |
+| Zillow | `zillowstatic.com/autocomplete/v3/suggestions` | listing page `__NEXT_DATA__` | lookup **works**; page **blocked** (captcha) |
+
+These are the sites' own web endpoints. They are not public APIs, and they change and block automated traffic without notice. Each attempt is reported (`ok`, `not_found`, `no_photos`, `blocked`, `error`), so you can see which site failed and why. The tool never tries to get around a captcha or a block.
+
+## Web front end (nginx + PHP)
+
+```bash
+git clone <this repo> && cd mls-grab
+sudo ./deploy/install.sh photos.example.com admin    # prints the generated password
+sudo certbot --nginx -d photos.example.com           # optional HTTPS
+```
+
+The installer:
+
+- copies the package to `/opt/mls-grab` and adds a `mls-grab` command to `/usr/local/bin`
+- installs the page to `/var/www/mls-grab`, with downloads kept in `/var/www/mls-grab/jobs`
+- adds an nginx site protected by basic auth, a PHP-FPM socket it detects automatically, and `fastcgi_read_timeout 300`
+- adds a daily cron job that deletes downloads older than 14 days
+
+The page takes an address, shows the photos as a gallery, and offers a ZIP download, a permalink and a list of recent lookups. It runs `python3 -m mls_grab ... --json --zip` with `proc_open`, passing the address as an argument array rather than through a shell.
+
 ## Site adapters
 
 Some sites get an adapter that reads the listing's own data instead of scanning the whole page. This matters on portals, where a page also shows photos of nearby and similar homes.
@@ -76,7 +108,7 @@ You can also pass cookies or other headers: `-H 'Cookie: session=…'` (repeatab
 ## Tests
 
 ```bash
-python -m unittest discover -s tests -v
+python -m unittest discover -s . -p 'test_*.py' -t . -v
 ```
 
 The tests run the real CLI end to end against a local HTTP server that serves a sample listing page.
